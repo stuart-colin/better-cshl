@@ -1,4 +1,4 @@
-import type { HTMLAttributes } from "react";
+import type { ComponentPropsWithoutRef } from "react";
 import { cn } from "@/lib/utils";
 
 type BadgeVariant = "default" | "secondary" | "outline" | "destructive" | "success";
@@ -11,7 +11,7 @@ const VARIANTS: Record<BadgeVariant, string> = {
   success: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
 };
 
-export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
+export interface BadgeProps extends ComponentPropsWithoutRef<"span"> {
   variant?: BadgeVariant;
 }
 
