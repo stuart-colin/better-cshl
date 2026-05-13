@@ -55,7 +55,8 @@ export function StandingsTable({ rows, scraped = [], discrepancies = [] }: Props
       )}
 
       <div className="overflow-hidden rounded-lg border border-border">
-        <table className="w-full text-sm">
+        <div className="max-w-full min-w-0 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+          <table className="w-full min-w-max text-sm">
           <thead>
             <tr className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
               <th className="text-left font-medium px-4 py-2.5">
@@ -140,6 +141,7 @@ export function StandingsTable({ rows, scraped = [], discrepancies = [] }: Props
             ))}
           </tbody>
         </table>
+        </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/60 bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground">
           <span>

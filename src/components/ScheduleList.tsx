@@ -193,14 +193,72 @@ function toSchedulePerspective(
   };
 }
 
-function GameRow({ row }: { row: ScheduleRow }) {
-  const { game, display } = row;
-  const rink = game.off || game.ppd ? null : lookupRink(game.rinkColor);
+function ScheduleGameDateMark({ game }: { game: Game }) {
+  return game.off ? (
+    <span className="text-red-300">OFF</span>
+  ) : game.ppd ? (
+    <span className="text-amber-300">PPD</span>
+  ) : (
+    (game.date ?? "TBD")
+  );
+}
+
+function ScheduleGameBadges({
+  display,
+}: {
+  display: ScheduleRow["display"];
+}) {
+  return (
+    <div className="flex min-h-[1.125rem] justify-end gap-1 sm:justify-end">
+      {display?.overtime && (
+        <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+          OT
+        </Badge>
+      )}
+      {display?.tie && (
+        <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+          Tie
+        </Badge>
+      )}
+    </div>
+  );
+}
+
+function ScheduleRinkChip({
+  rink,
+  hideOffPpdPlaceholders,
+}: {
+  rink: RinkInfo | null;
+  hideOffPpdPlaceholders: boolean;
+}) {
+  if (rink) {
+    return (
+      <span
+        className={cn(
+          "inline-flex max-w-full min-w-0 truncate items-center rounded-md border px-2 py-0.5 text-[10px] font-medium",
+          rink.className,
+        )}
+        title={rink.full}
+      >
+        {rink.short}
+      </span>
+    );
+  }
+  if (hideOffPpdPlaceholders) return null;
+  return <span className="text-[10px] text-muted-foreground">—</span>;
+}
+
+function ScheduleGameTeams({
+  game,
+  display,
+}: {
+  game: Game;
+  display: ScheduleRow["display"];
+}) {
   const homeWins =
     display !== null && display.homeScore > display.awayScore;
   const awayWins =
     display !== null && display.awayScore > display.homeScore;
-
   const accentCtx = display
     ? {
         homeScore: display.homeScore,
@@ -209,6 +267,63 @@ function GameRow({ row }: { row: ScheduleRow }) {
         tie: display.tie,
       }
     : null;
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-sm sm:min-w-0 sm:flex-1">
+      <Link
+        to="/teams/$slug"
+        params={{ slug: game.homeSlug }}
+        className={cn(
+          "inline-flex min-w-0 max-w-full items-center gap-1.5 font-medium hover:underline underline-offset-2 decoration-muted-foreground/40",
+          display && (homeWins ? "font-semibold" : "text-muted-foreground"),
+        )}
+      >
+        <TeamLogo src={game.homeLogoUrl} name={game.home} size="xs" />
+        <span className="inline-flex min-w-0 items-baseline gap-1.5 leading-snug">
+          <span className="truncate">{game.home}</span>
+          {display && (
+            <span
+              className={cn(
+                "shrink-0 tabular-nums",
+                accentCtx && goalNumberClass("home", accentCtx),
+              )}
+            >
+              {display.homeScore}
+            </span>
+          )}
+        </span>
+      </Link>
+      <span className="shrink-0 text-xs text-muted-foreground">vs</span>
+      <Link
+        to="/teams/$slug"
+        params={{ slug: game.awaySlug }}
+        className={cn(
+          "inline-flex min-w-0 max-w-full items-center gap-1.5 font-medium hover:underline underline-offset-2 decoration-muted-foreground/40",
+          display && (awayWins ? "font-semibold" : "text-muted-foreground"),
+        )}
+      >
+        <TeamLogo src={game.awayLogoUrl} name={game.away} size="xs" />
+        <span className="inline-flex min-w-0 items-baseline gap-1.5 leading-snug">
+          <span className="truncate">{game.away}</span>
+          {display && (
+            <span
+              className={cn(
+                "shrink-0 tabular-nums",
+                accentCtx && goalNumberClass("away", accentCtx),
+              )}
+            >
+              {display.awayScore}
+            </span>
+          )}
+        </span>
+      </Link>
+    </div>
+  );
+}
+
+function GameRow({ row }: { row: ScheduleRow }) {
+  const { game, display } = row;
+  const rink = game.off || game.ppd ? null : lookupRink(game.rinkColor);
 
   const timeLabel =
     game.off || game.ppd
@@ -223,102 +338,53 @@ function GameRow({ row }: { row: ScheduleRow }) {
     <li
       className={cn(
         "px-4 py-3",
-        "flex flex-wrap items-center gap-x-3 gap-y-2",
         "sm:grid sm:grid-cols-[5.5rem_minmax(0,1fr)_10.75rem_minmax(0,7rem)] sm:items-center sm:gap-x-3 sm:gap-y-0",
       )}
     >
-      <div className="w-[5.5rem] shrink-0 text-xs text-muted-foreground tabular-nums sm:w-auto">
-        {game.off ? (
-          <span className="text-red-300">OFF</span>
-        ) : game.ppd ? (
-          <span className="text-amber-300">PPD</span>
-        ) : (
-          game.date ?? "TBD"
-        )}
-      </div>
-
-      <div className="flex min-w-0 flex-1 basis-full flex-wrap items-center gap-x-2 gap-y-1 text-sm sm:basis-auto sm:flex-1">
-        <Link
-          to="/teams/$slug"
-          params={{ slug: game.homeSlug }}
-          className={cn(
-            "inline-flex min-w-0 max-w-full items-center gap-1.5 font-medium hover:underline underline-offset-2 decoration-muted-foreground/40",
-            display && (homeWins ? "font-semibold" : "text-muted-foreground"),
-          )}
-        >
-          <TeamLogo src={game.homeLogoUrl} name={game.home} size="xs" />
-          <span className="inline-flex min-w-0 items-baseline gap-1.5 leading-snug">
-            <span className="truncate">{game.home}</span>
-            {display && (
-              <span
-                className={cn(
-                  "shrink-0 tabular-nums",
-                  accentCtx && goalNumberClass("home", accentCtx),
-                )}
-              >
-                {display.homeScore}
-              </span>
+      <div className="flex flex-col gap-2 sm:hidden">
+        <div className="flex min-w-0 w-full items-center justify-between gap-x-3">
+          <div className="shrink-0 text-xs text-muted-foreground tabular-nums">
+            <ScheduleGameDateMark game={game} />
+          </div>
+          <div className="flex min-w-0 flex-1 flex-nowrap items-center justify-end gap-x-2">
+            {timeLabel !== "" && (
+              <div className="shrink-0 text-right text-xs text-muted-foreground tabular-nums">
+                {timeLabel}
+              </div>
             )}
-          </span>
-        </Link>
-        <span className="shrink-0 text-xs text-muted-foreground">vs</span>
-        <Link
-          to="/teams/$slug"
-          params={{ slug: game.awaySlug }}
-          className={cn(
-            "inline-flex min-w-0 max-w-full items-center gap-1.5 font-medium hover:underline underline-offset-2 decoration-muted-foreground/40",
-            display && (awayWins ? "font-semibold" : "text-muted-foreground"),
-          )}
-        >
-          <TeamLogo src={game.awayLogoUrl} name={game.away} size="xs" />
-          <span className="inline-flex min-w-0 items-baseline gap-1.5 leading-snug">
-            <span className="truncate">{game.away}</span>
-            {display && (
-              <span
-                className={cn(
-                  "shrink-0 tabular-nums",
-                  accentCtx && goalNumberClass("away", accentCtx),
-                )}
-              >
-                {display.awayScore}
-              </span>
-            )}
-          </span>
-        </Link>
-      </div>
-
-      <div className="ml-auto grid min-w-0 w-full max-w-[10.75rem] shrink-0 grid-cols-[4.5rem_5.75rem] items-center gap-x-1.5 sm:ml-0 sm:max-w-none">
-        <div className="flex min-h-[1.125rem] justify-end gap-1">
-          {display?.overtime && (
-            <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
-              OT
-            </Badge>
-          )}
-          {display?.tie && (
-            <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
-              Tie
-            </Badge>
-          )}
+            <div className="min-w-0 flex justify-end">
+              <ScheduleRinkChip
+                rink={rink}
+                hideOffPpdPlaceholders={hideOffPpdPlaceholders}
+              />
+            </div>
+          </div>
         </div>
-        <div className="text-right text-xs text-muted-foreground tabular-nums sm:text-sm">
-          {timeLabel}
+        <div className="flex min-w-0 w-full items-center justify-between gap-x-3">
+          <ScheduleGameTeams game={game} display={display} />
+          <div className="shrink-0 pl-2">
+            <ScheduleGameBadges display={display} />
+          </div>
         </div>
       </div>
 
-      <div className="flex min-w-0 max-w-full basis-full justify-end sm:basis-auto sm:max-w-none sm:justify-end">
-        {rink ? (
-          <span
-            className={cn(
-              "inline-flex max-w-full min-w-0 truncate items-center rounded-md border px-2 py-0.5 text-[10px] font-medium",
-              rink.className,
-            )}
-            title={rink.full}
-          >
-            {rink.short}
-          </span>
-        ) : hideOffPpdPlaceholders ? null : (
-          <span className="text-[10px] text-muted-foreground">—</span>
-        )}
+      <div className="hidden sm:contents">
+        <div className="w-[5.5rem] shrink-0 text-xs text-muted-foreground tabular-nums sm:w-auto">
+          <ScheduleGameDateMark game={game} />
+        </div>
+        <ScheduleGameTeams game={game} display={display} />
+        <div className="ml-auto grid min-w-0 w-full max-w-[10.75rem] shrink-0 grid-cols-[4.5rem_5.75rem] items-center gap-x-1.5 sm:ml-0 sm:max-w-none">
+          <ScheduleGameBadges display={display} />
+          <div className="text-right text-xs text-muted-foreground tabular-nums sm:text-sm">
+            {timeLabel}
+          </div>
+        </div>
+        <div className="flex min-w-0 max-w-full basis-full justify-end sm:basis-auto sm:max-w-none sm:justify-end">
+          <ScheduleRinkChip
+            rink={rink}
+            hideOffPpdPlaceholders={hideOffPpdPlaceholders}
+          />
+        </div>
       </div>
     </li>
   );
