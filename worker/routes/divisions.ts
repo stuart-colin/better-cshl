@@ -8,7 +8,7 @@ import {
 } from "../scrapers/division";
 
 // Bump when the response shape changes so stale caches don't poison the client.
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 
 const route = new Hono<{ Bindings: { ASSETS: Fetcher } }>();
 

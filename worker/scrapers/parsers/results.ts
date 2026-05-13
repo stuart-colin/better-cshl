@@ -19,6 +19,10 @@ import { fuzzyMatchTeamNorm, normalizeTeamKey } from "./teamNameMatch";
  *
  * When that still fails, we use the same tight Levenshtein match as the
  * standings table (`Healthy Sratches` → Healthy Scratches).
+ *
+ * Trailing-only shorthand: a single word that equals **one** team's final
+ * word (e.g. `Clams` → Narragansett Clams) when no other seed shares that
+ * last word.
  */
 
 const RESULTS_RE = /RESULTS[\s\S]*?<div[^>]*paragraph[^>]*>([\s\S]*?)<\/div>/i;
@@ -138,6 +142,28 @@ function matchUniquePrefixTeam(
   return matches[0] ?? null;
 }
 
+/** Southern-style shorthand: `Clams` for Narragansett Clams — unique last word only. */
+const MIN_LAST_WORD_TOKEN_LEN = 4;
+
+function matchUniqueLastWordTeam(
+  nameWords: string[],
+  teams: Team[],
+  excludeSlug?: string,
+): Team | null {
+  if (nameWords.length !== 1) return null;
+  const token = nameWords[0]!.toLowerCase();
+  if (token.length < MIN_LAST_WORD_TOKEN_LEN) return null;
+
+  const matches = teams.filter((t) => {
+    if (excludeSlug && t.slug === excludeSlug) return false;
+    const parts = t.name.toLowerCase().split(/\s+/).filter(Boolean);
+    const last = parts[parts.length - 1];
+    return last === token;
+  });
+  if (matches.length !== 1) return null;
+  return matches[0] ?? null;
+}
+
 function resolveTeamFromNameWords(
   nameWords: string[],
   teams: Team[],
@@ -145,6 +171,8 @@ function resolveTeamFromNameWords(
 ): Team | null {
   const strict = matchUniquePrefixTeam(nameWords, teams, excludeSlug);
   if (strict) return strict;
+  const lastWord = matchUniqueLastWordTeam(nameWords, teams, excludeSlug);
+  if (lastWord) return lastWord;
   const joined = nameWords.join(" ").trim();
   if (!joined) return null;
   return fuzzyMatchTeamNorm(normalizeTeamKey(joined), teams, {
