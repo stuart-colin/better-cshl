@@ -186,7 +186,7 @@ function DiscrepancyBanner({
               : `${grouped.size} teams`}:
           </p>
           <ul className="mt-1 space-y-0.5 text-xs">
-            {[...grouped.entries()].slice(0, 5).map(([team, entries]) => (
+            {[...grouped.entries()].map(([team, entries]) => (
               <li key={team} className="text-amber-100/90">
                 <span className="font-medium">{team}</span>
                 <span className="text-amber-200/70">
@@ -200,11 +200,6 @@ function DiscrepancyBanner({
                 </span>
               </li>
             ))}
-            {grouped.size > 5 && (
-              <li className="text-amber-200/60">
-                + {grouped.size - 5} more
-              </li>
-            )}
           </ul>
         </div>
       </div>

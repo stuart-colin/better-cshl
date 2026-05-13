@@ -6,6 +6,7 @@ import {
   slugify,
   stripTags,
 } from "./htmlUtils";
+import { fuzzyMatchTeamNorm, normalizeTeamKey } from "./teamNameMatch";
 
 /**
  * Locates the standings `<table class="simple-table ...">` whose header row
@@ -81,11 +82,6 @@ function toStat(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Lowercase letters+digits only — stable for comparing site typos to seeds. */
-function normalizeTeamKey(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
 /**
  * Map a standings table label onto the seed list. Exact normalized match first;
  * then a tight Levenshtein match so upstream typos (e.g. COUNTRTY) still
@@ -98,57 +94,7 @@ function canonicalTeamName(raw: string, teams: Team[]): string {
     if (tn === norm) return t.name;
   }
 
-  const fuzzy = fuzzyMatchTeam(norm, teams);
+  const fuzzy = fuzzyMatchTeamNorm(norm, teams);
   if (fuzzy) return fuzzy.name;
   return raw;
-}
-
-/** Max edit distance for fuzzy name match (1 handles common single-char typos). */
-const FUZZY_MAX_DIST = 2;
-/** Avoid short-name false positives ("A" vs "B"). */
-const FUZZY_MIN_KEY_LEN = 8;
-
-function fuzzyMatchTeam(norm: string, teams: Team[]): Team | null {
-  if (norm.length < FUZZY_MIN_KEY_LEN) return null;
-
-  let best: Team | null = null;
-  let bestD = Infinity;
-  let secondD = Infinity;
-
-  for (const t of teams) {
-    const tn = normalizeTeamKey(t.name);
-    if (tn.length < FUZZY_MIN_KEY_LEN) continue;
-    const d = levenshtein(norm, tn);
-    if (d < bestD) {
-      secondD = bestD;
-      bestD = d;
-      best = t;
-    } else if (d < secondD) {
-      secondD = d;
-    }
-  }
-
-  if (!best || bestD > FUZZY_MAX_DIST) return null;
-  if (secondD !== Infinity && secondD <= bestD) return null;
-  return best;
-}
-
-function levenshtein(a: string, b: string): number {
-  const m = a.length;
-  const n = b.length;
-  if (m === 0) return n;
-  if (n === 0) return m;
-  const row = new Array<number>(n + 1);
-  for (let j = 0; j <= n; j++) row[j] = j;
-  for (let i = 1; i <= m; i++) {
-    let prev = row[0];
-    row[0] = i;
-    for (let j = 1; j <= n; j++) {
-      const tmp = row[j];
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + cost);
-      prev = tmp;
-    }
-  }
-  return row[n]!;
 }
