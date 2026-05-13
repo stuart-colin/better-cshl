@@ -18,11 +18,11 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
 
-    "types": [],
+    "types": ["@cloudflare/workers-types"],
 
     "paths": {
       "@shared/*": ["./shared/*"]
     }
   },
-  "include": ["worker", "shared", "worker-configuration.d.ts"]
+  "include": ["worker", "shared"]
 }
