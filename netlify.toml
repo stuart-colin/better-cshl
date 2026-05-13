@@ -1,0 +1,7 @@
+# Static UI from Vite; /api/* proxied to Cloudflare Worker (see NETLIFY_API_TARGET).
+[build]
+  command = "npm run build && node scripts/write-netlify-redirects.mjs"
+  publish = "dist/client"
+
+[build.environment]
+  NODE_VERSION = "22"
