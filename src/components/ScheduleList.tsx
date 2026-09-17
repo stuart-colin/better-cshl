@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { Game, Result } from "@shared/types";
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { Badge } from "./ui/badge";
 import { TeamLogo } from "./TeamLogo";
 import { goalNumberClass } from "@/lib/gameScoreAccent";
@@ -115,11 +115,47 @@ function isMutedCranstonScheduleColor([r, g, b]: [number, number, number]): bool
   return min >= 175 && avg >= 215 && max - min <= 48;
 }
 
+const SCHEDULE_DATE_RE =
+  /^(?:Sun|Mon|Tue|Wed|Thur|Thu|Fri|Sat)\.?\s+([A-Za-z]{3,4})\.?\s+(\d{1,2})$/;
+
+const MONTH_INDEX: Record<string, number> = {
+  jan: 0,
+  feb: 1,
+  mar: 2,
+  apr: 3,
+  may: 4,
+  jun: 5,
+  jul: 6,
+  aug: 7,
+  sep: 8,
+  oct: 9,
+  nov: 10,
+  dec: 11,
+};
+
 export function ScheduleList({ games, results }: Props) {
   const { byWeek, leftoverResults } = useMemo(
     () => buildWeeksWithResults(games, results),
     [games, results],
   );
+
+  const currentWeek = useMemo(
+    () => findCurrentWeekNumber(byWeek),
+    [byWeek],
+  );
+  const scrollAnchorWeek = useMemo(
+    () => findScrollAnchorWeek(byWeek, currentWeek),
+    [byWeek, currentWeek],
+  );
+  const didScroll = useRef(false);
+
+  useLayoutEffect(() => {
+    if (didScroll.current || scrollAnchorWeek == null) return;
+    const el = document.getElementById(`schedule-week-${scrollAnchorWeek}`);
+    if (!el) return;
+    didScroll.current = true;
+    el.scrollIntoView({ block: "start" });
+  }, [scrollAnchorWeek, byWeek]);
 
   if (games.length === 0) {
     return (
@@ -132,7 +168,12 @@ export function ScheduleList({ games, results }: Props) {
   return (
     <div className="flex flex-col gap-6">
       {byWeek.map(([week, rows]) => (
-        <section key={week} className="space-y-3">
+        <section
+          key={week}
+          id={`schedule-week-${week}`}
+          className="scroll-mt-20 space-y-3"
+        >
+          {currentWeek != null && week === currentWeek && <ScheduleNowDivider />}
           <div className="flex items-baseline gap-3">
             <h3 className="text-sm font-semibold tracking-wider uppercase text-muted-foreground">
               Week {week}
@@ -216,6 +257,110 @@ function buildWeeksWithResults(
   const leftoverResults = pool.filter((p) => !p.used).map((p) => p.r);
   const byWeek = [...map.entries()].sort((a, b) => a[0] - b[0]);
   return { byWeek, leftoverResults };
+}
+
+function startOfLocalDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function parseScheduleDateString(raw: string, ref: Date): Date | null {
+  const m = normalizeWs(raw).match(SCHEDULE_DATE_RE);
+  if (!m) return null;
+  const monthKey = m[1].slice(0, 3).toLowerCase();
+  const month = MONTH_INDEX[monthKey];
+  if (month === undefined) return null;
+  const day = parseInt(m[2], 10);
+  if (!Number.isFinite(day)) return null;
+
+  let year = ref.getFullYear();
+  let candidate = startOfLocalDay(new Date(year, month, day));
+  const refDay = startOfLocalDay(ref).getTime();
+  const msBehind = refDay - candidate.getTime();
+  const msAhead = candidate.getTime() - refDay;
+  const rollMs = 120 * 86_400_000;
+  if (msBehind > rollMs) candidate = startOfLocalDay(new Date(year + 1, month, day));
+  else if (msAhead > rollMs)
+    candidate = startOfLocalDay(new Date(year - 1, month, day));
+  return candidate;
+}
+
+function weekDateBounds(
+  rows: ScheduleRow[],
+  ref: Date,
+): { min: Date; max: Date } | null {
+  const dates: Date[] = [];
+  for (const row of rows) {
+    if (!row.game.date || row.game.off || row.game.ppd) continue;
+    const d = parseScheduleDateString(row.game.date, ref);
+    if (d) dates.push(d);
+  }
+  if (dates.length === 0) return null;
+  let min = dates[0]!;
+  let max = dates[0]!;
+  for (const d of dates) {
+    if (d < min) min = d;
+    if (d > max) max = d;
+  }
+  return { min, max };
+}
+
+/** Week that contains today, or the next upcoming week; last week if season ended. */
+function findCurrentWeekNumber(
+  byWeek: [number, ScheduleRow[]][],
+): number | null {
+  if (byWeek.length === 0) return null;
+  const ref = new Date();
+  const today = startOfLocalDay(ref).getTime();
+
+  const ranges = byWeek
+    .map(([week, rows]) => {
+      const bounds = weekDateBounds(rows, ref);
+      return bounds ? { week, ...bounds } : null;
+    })
+    .filter((w): w is { week: number; min: Date; max: Date } => w != null);
+
+  if (ranges.length === 0) return byWeek[0]![0];
+
+  for (const w of ranges) {
+    if (w.min.getTime() <= today && today <= w.max.getTime()) return w.week;
+  }
+
+  for (const w of ranges) {
+    if (w.min.getTime() >= today) return w.week;
+  }
+
+  return ranges[ranges.length - 1]!.week;
+}
+
+/** Week section to align to top of viewport (one week before current). */
+function findScrollAnchorWeek(
+  byWeek: [number, ScheduleRow[]][],
+  currentWeek: number | null,
+): number | null {
+  if (currentWeek == null) return null;
+  const idx = byWeek.findIndex(([w]) => w === currentWeek);
+  if (idx < 0) return byWeek[0]?.[0] ?? null;
+  if (idx === 0) return byWeek[0]![0];
+  return byWeek[idx - 1]![0];
+}
+
+function ScheduleNowDivider() {
+  return (
+    <div
+      className="flex items-center gap-3 pb-1 pt-0.5"
+      aria-label="Current point in the schedule"
+    >
+      <div className="h-px flex-1 bg-sky-500/50" />
+      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-sky-400/90">
+        Now
+      </span>
+      <div className="h-px flex-1 bg-sky-500/50" />
+    </div>
+  );
+}
+
+function normalizeWs(s: string): string {
+  return s.replace(/\s+/g, " ").trim();
 }
 
 function toSchedulePerspective(

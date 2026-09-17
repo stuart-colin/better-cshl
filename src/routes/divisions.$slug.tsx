@@ -1,11 +1,9 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import type { ReactNode } from "react";
+import { createFileRoute, Link, notFound, Outlet } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { ArrowLeft, ExternalLink, RefreshCw } from "lucide-react";
 import { divisionQuery } from "@/lib/queries";
 import { ApiException } from "@/lib/api";
-import { StandingsTable } from "@/components/StandingsTable";
-import { ScheduleList } from "@/components/ScheduleList";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/divisions/$slug")({
@@ -19,12 +17,12 @@ export const Route = createFileRoute("/divisions/$slug")({
       throw err;
     }
   },
-  component: DivisionPage,
+  component: DivisionLayout,
   errorComponent: DivisionErrorBoundary,
   pendingComponent: DivisionPending,
 });
 
-function DivisionPage() {
+function DivisionLayout() {
   const { slug } = Route.useParams();
   const { data: division, refetch, isRefetching } = useSuspenseQuery(
     divisionQuery(slug),
@@ -80,25 +78,50 @@ function DivisionPage() {
         </p>
       </header>
 
-      <Tabs defaultValue="standings">
-        <TabsList>
-          <TabsTrigger value="standings">Standings</TabsTrigger>
-          <TabsTrigger value="schedule">Schedule & Results</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="standings">
-          <StandingsTable
-            rows={division.standings}
-            scraped={division.scrapedStandings}
-            discrepancies={division.discrepancies}
-          />
-        </TabsContent>
-
-        <TabsContent value="schedule">
-          <ScheduleList games={division.schedule} results={division.results} />
-        </TabsContent>
-      </Tabs>
+      <div className="flex flex-col gap-4">
+        <nav
+          role="tablist"
+          aria-label="Division views"
+          className="inline-flex h-10 w-fit items-center justify-center gap-1 rounded-lg bg-muted p-1 text-muted-foreground"
+        >
+          <DivisionTabLink slug={slug} to="/divisions/$slug">
+            Standings
+          </DivisionTabLink>
+          <DivisionTabLink slug={slug} to="/divisions/$slug/schedule">
+            Schedule & Results
+          </DivisionTabLink>
+        </nav>
+        <Outlet />
+      </div>
     </div>
+  );
+}
+
+function DivisionTabLink({
+  slug,
+  to,
+  children,
+}: {
+  slug: string;
+  to: "/divisions/$slug" | "/divisions/$slug/schedule";
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      to={to}
+      params={{ slug }}
+      activeOptions={{ exact: true }}
+      className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all hover:text-foreground/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      activeProps={{
+        className:
+          "bg-background text-foreground shadow-sm hover:text-foreground",
+        "aria-selected": true,
+      }}
+      inactiveProps={{ "aria-selected": false }}
+      role="tab"
+    >
+      {children}
+    </Link>
   );
 }
 

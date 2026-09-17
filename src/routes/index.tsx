@@ -74,7 +74,7 @@ function DivisionCard({
   data: Division | undefined;
   isLoading: boolean;
 }) {
-  const next = data ? findNextGame(data.schedule) : null;
+  const next = data ? findNextGame(data.schedule, data.results) : null;
   const leader = data && data.standings.length > 0 ? data.standings[0] : null;
   const hasStats = leader !== null && leader.gp > 0;
 
@@ -170,10 +170,32 @@ function Skel({ w }: { w: string }) {
   );
 }
 
-function findNextGame(games: Game[]): Game | null {
-  return (
-    games.find((g) => !g.off && !g.ppd && g.date) ?? games[0] ?? null
-  );
+/**
+ * First upcoming schedule row: not OFF/PPD, has a date line from the site, and
+ * no matching result yet (same home/away pairing as ScheduleList).
+ *
+ * We do not parse calendar dates — CSHL schedule strings omit the year — so
+ * "played" comes from the results blob, not comparing to today.
+ */
+function findNextGame(
+  games: Game[],
+  results: Division["results"],
+): Game | null {
+  const pool = results.map((r) => ({ r, used: false }));
+
+  for (const g of games) {
+    if (g.off || g.ppd || !g.date) continue;
+
+    const idx = pool.findIndex(
+      (p) =>
+        !p.used &&
+        ((p.r.homeSlug === g.homeSlug && p.r.awaySlug === g.awaySlug) ||
+          (p.r.homeSlug === g.awaySlug && p.r.awaySlug === g.homeSlug)),
+    );
+    if (idx === -1) return g;
+  }
+
+  return null;
 }
 
 function abbr(name: string): string {
