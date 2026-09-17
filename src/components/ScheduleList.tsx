@@ -40,6 +40,11 @@ const RINK_BY_COLOR: Record<string, RinkInfo> = {
     full: "Warburton Arena",
     className: "border-sky-500/40 bg-sky-500/10 text-sky-200",
   },
+  "#dab844": {
+    short: "Thayer",
+    full: "Thayer Arena",
+    className: "border-amber-500/40 bg-amber-500/10 text-amber-200",
+  },
   "#da4444": {
     short: "Off",
     full: "Make-up game (rescheduled)",
@@ -58,16 +63,56 @@ function lookupRink(color: string | null): RinkInfo | null {
   ) {
     return CRANSTON;
   }
-  return RINK_BY_COLOR[lower] ?? RINK_BY_COLOR[rgbToHex(color)] ?? null;
+  const mapped =
+    RINK_BY_COLOR[lower] ?? RINK_BY_COLOR[rgbToHex(color)] ?? null;
+  if (mapped) return mapped;
+
+  // Schedulers often pick a slightly off white/grey for Cranston Vets (#ecf2f4, etc.)
+  // instead of plain white or no color — treat light neutrals as Cranston, not unknown.
+  const rgb = parseColorToRgb(color);
+  if (rgb && isMutedCranstonScheduleColor(rgb)) return CRANSTON;
+
+  return null;
 }
 
 function rgbToHex(c: string): string {
-  const m = c.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-  if (!m) return c.toLowerCase();
-  const hex = [m[1], m[2], m[3]]
-    .map((n) => parseInt(n, 10).toString(16).padStart(2, "0"))
-    .join("");
-  return `#${hex}`.toLowerCase();
+  const rgb = parseColorToRgb(c);
+  if (!rgb) return c.toLowerCase();
+  return `#${rgb.map((n) => n.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function parseColorToRgb(color: string): [number, number, number] | null {
+  const trimmed = color.trim();
+  const rgbM = trimmed.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
+  if (rgbM) {
+    return [
+      parseInt(rgbM[1], 10),
+      parseInt(rgbM[2], 10),
+      parseInt(rgbM[3], 10),
+    ];
+  }
+  let hex = trimmed.toLowerCase();
+  if (hex.startsWith("#")) hex = hex.slice(1);
+  if (hex.length === 3) {
+    hex = hex
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  }
+  if (!/^[0-9a-f]{6}$/.test(hex)) return null;
+  return [
+    parseInt(hex.slice(0, 2), 16),
+    parseInt(hex.slice(2, 4), 16),
+    parseInt(hex.slice(4, 6), 16),
+  ];
+}
+
+/** Very light, low-saturation colors used on the site for Cranston Vets rows. */
+function isMutedCranstonScheduleColor([r, g, b]: [number, number, number]): boolean {
+  const min = Math.min(r, g, b);
+  const max = Math.max(r, g, b);
+  const avg = (r + g + b) / 3;
+  return min >= 175 && avg >= 215 && max - min <= 48;
 }
 
 export function ScheduleList({ games, results }: Props) {

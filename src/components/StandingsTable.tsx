@@ -67,11 +67,17 @@ export function StandingsTable({ rows, scraped = [], discrepancies = [] }: Props
                 <th
                   key={c.key}
                   title={c.hint}
-                  className="text-right font-medium px-3 py-2.5 last:pr-4"
+                  className="text-right font-medium px-3 py-2.5"
                 >
                   {c.label}
                 </th>
               ))}
+              <th
+                title="Goal differential (GF − GA)"
+                className="text-right font-medium px-3 py-2.5 last:pr-4"
+              >
+                DIFF
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -110,15 +116,17 @@ export function StandingsTable({ rows, scraped = [], discrepancies = [] }: Props
                     typeof val === "number" && val > 0
                       ? c.key === "w"
                         ? "text-emerald-400"
-                        : c.key === "otl" || c.key === "t"
-                          ? "text-yellow-400"
-                          : undefined
+                        : c.key === "l"
+                          ? "text-red-400"
+                          : c.key === "otl" || c.key === "t"
+                            ? "text-yellow-400"
+                            : undefined
                       : undefined;
                   return (
                     <td
                       key={c.key}
                       className={cn(
-                        "px-3 py-2.5 text-right tabular-nums last:pr-4",
+                        "px-3 py-2.5 text-right tabular-nums",
                         c.key === "pts" && "font-semibold",
                         disc && "bg-amber-500/10",
                       )}
@@ -137,6 +145,11 @@ export function StandingsTable({ rows, scraped = [], discrepancies = [] }: Props
                     </td>
                   );
                 })}
+                <td className="px-3 py-2.5 text-right tabular-nums last:pr-4">
+                  <span className={cn(goalDiffAccent(r.gf - r.ga))}>
+                    {formatGoalDiff(r.gf - r.ga)}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -205,6 +218,17 @@ function DiscrepancyBanner({
       </div>
     </div>
   );
+}
+
+function formatGoalDiff(diff: number): string {
+  if (diff > 0) return `+${diff}`;
+  return String(diff);
+}
+
+function goalDiffAccent(diff: number): string | undefined {
+  if (diff > 0) return "text-emerald-400";
+  if (diff < 0) return "text-red-400";
+  return "text-yellow-400";
 }
 
 function labelFor(field: DiscrepancyField): string {
