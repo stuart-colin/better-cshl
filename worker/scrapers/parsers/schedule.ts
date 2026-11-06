@@ -24,6 +24,8 @@ const DATE_RE =
   /^(Sun|Mon|Tue|Wed|Thur|Thu|Fri|Sat)\.?\s+([A-Z][a-z]{2,3})\.?\s+(\d{1,2})$/;
 const MATCHUP_RE = /^(\d{1,2})\s+v\s+(\d{1,2})(?:\s+(\d{3,4}))?$/;
 const OFF_RE = /^(OFF|PPD)$/i;
+/** Time split from its matchup by a colour change, e.g. `3 v 7` then `930`. */
+const TIME_RE = /^(\d{3,4})$/;
 
 export function parseSchedule(html: string, teams: Team[]): Game[] {
   const block = html.match(SCHEDULE_BLOCK_RE);
@@ -41,9 +43,18 @@ export function parseSchedule(html: string, teams: Team[]): Game[] {
     let pendingColor: string | null = null;
     let off = false;
     let ppd = false;
+    let lastGame: Game | null = null;
 
     for (const tok of tokens) {
       const t = tok.text;
+      const previousGame = lastGame;
+      lastGame = null;
+
+      const tm = t.match(TIME_RE);
+      if (tm && previousGame && previousGame.time === null && !previousGame.off) {
+        previousGame.time = formatTime(tm[1]);
+        continue;
+      }
 
       const mu = t.match(MATCHUP_RE);
       if (mu && week > 0) {
@@ -53,7 +64,7 @@ export function parseSchedule(html: string, teams: Team[]): Game[] {
         const home = byNumber.get(homeNumber);
         const away = byNumber.get(awayNumber);
         if (!home || !away) continue;
-        games.push({
+        lastGame = {
           week,
           weekLabel,
           homeNumber,
@@ -69,7 +80,8 @@ export function parseSchedule(html: string, teams: Team[]): Game[] {
           rinkColor: pendingColor ?? tok.color,
           off,
           ppd,
-        });
+        };
+        games.push(lastGame);
         off = false;
         ppd = false;
         continue;

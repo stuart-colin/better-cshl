@@ -73,6 +73,7 @@ export interface ColoredToken {
  * Stream-tokenize a chunk of HTML into colored text fragments split by:
  *  - `<br>` (the most common separator in CSHL schedule paragraphs)
  *  - close of any color-bearing tag (`</font>`, `</span>`, `</u>`)
+ *  - open of a color-bearing tag that changes the current color
  *
  * Inside CSHL schedule HTML, dates are wrapped in `<u>` and matchups follow as
  * plain text inside `<font color="...">`. Both flushes give us each game on a
@@ -120,16 +121,19 @@ export function tokenizeBlock(html: string): ColoredToken[] {
       continue;
     }
 
+    let cm: RegExpMatchArray | null;
     if (name === "font") {
-      const cm = tag.match(/color\s*=\s*"([^"]+)"/i);
-      stack.push(cm ? cm[1].trim() : colorOf());
-    } else if (name === "span") {
-      const cm = tag.match(/style\s*=\s*"[^"]*color\s*:\s*([^;"]+)/i);
-      stack.push(cm ? cm[1].trim() : colorOf());
-    } else if (name === "u") {
-      const cm = tag.match(/style\s*=\s*"[^"]*color\s*:\s*([^;"]+)/i);
-      stack.push(cm ? cm[1].trim() : colorOf());
+      cm = tag.match(/color\s*=\s*"([^"]+)"/i);
+    } else if (name === "span" || name === "u") {
+      cm = tag.match(/style\s*=\s*"[^"]*color\s*:\s*([^;"]+)/i);
+    } else {
+      continue;
     }
+    const color = cm ? cm[1].trim() : colorOf();
+    // A colour change mid-line (e.g. `1 v 2 1010 <font color=red>(F)</font>`)
+    // starts a new token so a tag can't recolour or merge into the matchup.
+    if (color !== colorOf()) flush();
+    stack.push(color);
   }
   flush();
   return out;
