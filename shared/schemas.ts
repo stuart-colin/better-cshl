@@ -70,6 +70,14 @@ export const StandingsDiscrepancySchema = z.object({
 });
 export type StandingsDiscrepancy = z.infer<typeof StandingsDiscrepancySchema>;
 
+/** Footnote explaining a hand-adjusted standings row. */
+export const StandingsNoteSchema = z.object({
+  team: z.string(),
+  slug: z.string(),
+  note: z.string(),
+});
+export type StandingsNote = z.infer<typeof StandingsNoteSchema>;
+
 export const ResultSchema = z.object({
   home: z.string(),
   homeSlug: z.string(),
@@ -118,6 +126,7 @@ export const DivisionSchema = z.object({
   standings: z.array(StandingsRowSchema),
   scrapedStandings: z.array(ScrapedStandingsRowSchema),
   discrepancies: z.array(StandingsDiscrepancySchema),
+  standingsNotes: z.array(StandingsNoteSchema),
   results: z.array(ResultSchema),
   schedule: z.array(GameSchema),
   fetchedAt: z.string(),

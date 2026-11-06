@@ -4,6 +4,7 @@ import type {
   DiscrepancyField,
   ScrapedStandingsRow,
   StandingsDiscrepancy,
+  StandingsNote,
   StandingsRow,
 } from "@shared/types";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,7 @@ interface Props {
   rows: StandingsRow[];
   scraped?: ScrapedStandingsRow[];
   discrepancies?: StandingsDiscrepancy[];
+  notes?: StandingsNote[];
 }
 
 type ScalarField = Exclude<DiscrepancyField, "otlT">;
@@ -32,7 +34,12 @@ const COLS: Array<{
   { key: "ga", label: "GA", hint: "Goals Against" },
 ];
 
-export function StandingsTable({ rows, scraped = [], discrepancies = [] }: Props) {
+export function StandingsTable({
+  rows,
+  scraped = [],
+  discrepancies = [],
+  notes = [],
+}: Props) {
   if (rows.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -47,6 +54,7 @@ export function StandingsTable({ rows, scraped = [], discrepancies = [] }: Props
     discByTeamField.set(`${d.slug}:${d.field}`, d);
   }
   const hasScraped = scraped.some((s) => s.gp != null || s.pts != null);
+  const notedSlugs = new Set(notes.map((n) => n.slug));
 
   return (
     <div className="space-y-3">
@@ -99,7 +107,17 @@ export function StandingsTable({ rows, scraped = [], discrepancies = [] }: Props
                     className="inline-flex items-center gap-2 hover:underline underline-offset-2 decoration-muted-foreground/40"
                   >
                     <TeamLogo src={r.logoUrl} name={r.team} size="sm" />
-                    <span>{r.team}</span>
+                    <span>
+                      {r.team}
+                      {notedSlugs.has(r.slug) && (
+                        <sup
+                          className="ml-0.5 text-[10px] text-sky-400"
+                          title={notes.find((n) => n.slug === r.slug)?.note}
+                        >
+                          *
+                        </sup>
+                      )}
+                    </span>
                   </Link>
                 </td>
                 {COLS.map((c) => {
@@ -165,6 +183,11 @@ export function StandingsTable({ rows, scraped = [], discrepancies = [] }: Props
               · Cross-checked against the site's published standings
             </span>
           )}
+          {notes.map((n) => (
+            <span key={n.slug} className="basis-full">
+              <span className="text-sky-400">*</span> {n.team}: {n.note}
+            </span>
+          ))}
         </div>
       </div>
     </div>

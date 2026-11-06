@@ -3,6 +3,7 @@ export type {
   StandingsRow,
   ScrapedStandingsRow,
   StandingsDiscrepancy,
+  StandingsNote,
   DiscrepancyField,
   Result,
   Game,

@@ -16,6 +16,7 @@ function DivisionStandingsPage() {
       rows={division.standings}
       scraped={division.scrapedStandings}
       discrepancies={division.discrepancies}
+      notes={division.standingsNotes}
     />
   );
 }

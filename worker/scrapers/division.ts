@@ -7,6 +7,7 @@ import { parseResults } from "./parsers/results";
 import { parseSchedule } from "./parsers/schedule";
 import { parseSeedList } from "./parsers/seedList";
 import { parseScrapedStandings } from "./parsers/standings";
+import { applySeasonOverrides } from "./seasonOverrides";
 
 export const DIVISIONS = [
   {
@@ -63,7 +64,11 @@ export async function scrapeDivision(slug: DivisionSlug): Promise<Division> {
   const scrapedStandings = parseScrapedStandings(html, teams);
   const results = parseResults(html, teams);
   const schedule = parseSchedule(html, teams);
-  const standings = computeStandings(teams, results);
+  const { standings, notes: standingsNotes } = applySeasonOverrides(
+    meta.slug,
+    computeStandings(teams, results),
+    teams,
+  );
   const discrepancies = reconcileStandings(standings, scrapedStandings);
 
   return DivisionSchema.parse({
@@ -74,6 +79,7 @@ export async function scrapeDivision(slug: DivisionSlug): Promise<Division> {
     standings,
     scrapedStandings,
     discrepancies,
+    standingsNotes,
     results,
     schedule,
     fetchedAt,
