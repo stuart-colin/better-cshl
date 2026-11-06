@@ -29,7 +29,6 @@ export function computeStandings(
   results: Result[],
 ): StandingsRow[] {
   const rowsBySlug = new Map<string, StandingsRow>();
-  const teamBySlug = new Map<string, Team>(teams.map((t) => [t.slug, t]));
 
   for (const t of teams) {
     rowsBySlug.set(t.slug, {
@@ -48,44 +47,29 @@ export function computeStandings(
   }
 
   for (const r of results) {
+    // Either side may be missing when the opponent has left the division;
+    // the remaining team still gets credit for the game.
     const a = rowsBySlug.get(r.homeSlug);
     const b = rowsBySlug.get(r.awaySlug);
-    if (!a || !b) continue;
-
-    a.gp += 1;
-    b.gp += 1;
-    a.gf += r.homeScore;
-    a.ga += r.awayScore;
-    b.gf += r.awayScore;
-    b.ga += r.homeScore;
+    if (!a && !b) continue;
 
     const treatAsTie =
       r.tie || (!r.overtime && r.homeScore === r.awayScore);
+    const homeWon = r.homeScore > r.awayScore;
 
-    if (treatAsTie) {
-      a.t += 1;
-      b.t += 1;
-      a.pts += 1;
-      b.pts += 1;
-      continue;
-    }
-
-    const aWon = r.homeScore > r.awayScore;
-    const winner = aWon ? a : b;
-    const loser = aWon ? b : a;
-    winner.w += 1;
-    winner.pts += 2;
-    if (r.overtime) {
-      loser.otl += 1;
-      loser.pts += 1;
-    } else {
-      loser.l += 1;
-    }
+    if (a) applyGame(a, r.homeScore, r.awayScore, treatAsTie, homeWon, r.overtime);
+    if (b) applyGame(b, r.awayScore, r.homeScore, treatAsTie, !homeWon, r.overtime);
   }
 
-  const rows = [...rowsBySlug.values()];
+  return sortStandings([...rowsBySlug.values()], teams);
+}
 
-  rows.sort((a, b) => {
+export function sortStandings(
+  rows: StandingsRow[],
+  teams: Team[],
+): StandingsRow[] {
+  const teamBySlug = new Map<string, Team>(teams.map((t) => [t.slug, t]));
+  return [...rows].sort((a, b) => {
     if (b.pts !== a.pts) return b.pts - a.pts;
     if (b.w !== a.w) return b.w - a.w;
     const diffA = a.gf - a.ga;
@@ -96,8 +80,31 @@ export function computeStandings(
     const tb = teamBySlug.get(b.slug)?.number ?? 99;
     return ta - tb;
   });
+}
 
-  return rows;
+function applyGame(
+  row: StandingsRow,
+  goalsFor: number,
+  goalsAgainst: number,
+  tie: boolean,
+  won: boolean,
+  overtime: boolean,
+): void {
+  row.gp += 1;
+  row.gf += goalsFor;
+  row.ga += goalsAgainst;
+  if (tie) {
+    row.t += 1;
+    row.pts += 1;
+  } else if (won) {
+    row.w += 1;
+    row.pts += 2;
+  } else if (overtime) {
+    row.otl += 1;
+    row.pts += 1;
+  } else {
+    row.l += 1;
+  }
 }
 
 type ScalarField = Exclude<DiscrepancyField, "otlT">;

@@ -1,5 +1,5 @@
 import type { Result, Team } from "@shared/schemas";
-import { decodeEntities, normalizeWs, stripTags } from "./htmlUtils";
+import { decodeEntities, normalizeWs, slugify, stripTags } from "./htmlUtils";
 import { fuzzyMatchTeamNorm, normalizeTeamKey } from "./teamNameMatch";
 
 /**
@@ -51,7 +51,10 @@ export function parseResults(html: string, teams: Team[]): Result[] {
 function parseLine(line: string, teams: Team[]): Result | null {
   const direct = parseLineFullPrefix(line, teams);
   if (direct) return direct;
-  return parseLineUniquePrefix(line, teams);
+  return (
+    parseLineUniquePrefix(line, teams) ??
+    parseLineUniquePrefix(line, teams, true)
+  );
 }
 
 /** Original strategy: full canonical name at start of line, longest team first. */
@@ -164,6 +167,24 @@ function matchUniqueLastWordTeam(
   return matches[0] ?? null;
 }
 
+/** Renamed teams keep their lead word: `Rhody Ice Holes` → Rhody H.C. */
+function matchUniqueFirstWordTeam(
+  nameWords: string[],
+  teams: Team[],
+  excludeSlug?: string,
+): Team | null {
+  if (nameWords.length < 2) return null;
+  const token = nameWords[0]!.toLowerCase();
+  if (token.length < MIN_LAST_WORD_TOKEN_LEN) return null;
+
+  const matches = teams.filter((t) => {
+    if (excludeSlug && t.slug === excludeSlug) return false;
+    return t.name.toLowerCase().split(/\s+/)[0] === token;
+  });
+  if (matches.length !== 1) return null;
+  return matches[0] ?? null;
+}
+
 function resolveTeamFromNameWords(
   nameWords: string[],
   teams: Team[],
@@ -173,6 +194,8 @@ function resolveTeamFromNameWords(
   if (strict) return strict;
   const lastWord = matchUniqueLastWordTeam(nameWords, teams, excludeSlug);
   if (lastWord) return lastWord;
+  const firstWord = matchUniqueFirstWordTeam(nameWords, teams, excludeSlug);
+  if (firstWord) return firstWord;
   const joined = nameWords.join(" ").trim();
   if (!joined) return null;
   return fuzzyMatchTeamNorm(normalizeTeamKey(joined), teams, {
@@ -180,18 +203,26 @@ function resolveTeamFromNameWords(
   });
 }
 
-function parseLineUniquePrefix(line: string, teams: Team[]): Result | null {
+function parseLineUniquePrefix(
+  line: string,
+  teams: Team[],
+  allowOutsideTeam = false,
+): Result | null {
   const lineN = normalizeWs(line);
   const first = splitNameScoreTail(lineN);
   if (!first) return null;
 
-  const t1 = resolveTeamFromNameWords(first.nameWords, teams);
+  const t1Known = resolveTeamFromNameWords(first.nameWords, teams);
+  const t1 = t1Known ?? (allowOutsideTeam ? outsideTeam(first.nameWords) : null);
   if (!t1) return null;
 
   const second = splitNameScoreTail(first.tail);
   if (!second) return null;
 
-  const t2 = resolveTeamFromNameWords(second.nameWords, teams, t1.slug);
+  const t2Known = resolveTeamFromNameWords(second.nameWords, teams, t1.slug);
+  const t2 =
+    t2Known ??
+    (allowOutsideTeam && t1Known ? outsideTeam(second.nameWords) : null);
   if (!t2) return null;
 
   const tagM = second.tail
@@ -202,6 +233,16 @@ function parseLineUniquePrefix(line: string, teams: Team[]): Result | null {
   if (second.tail.trim() !== "" && tag == null) return null;
 
   return buildResult(t1, t2, first.score, second.score, tag);
+}
+
+/**
+ * Opponent that isn't in the seed list any more (removed or moved mid-season).
+ * The site keeps those games in the remaining team's standings, so we do too.
+ */
+function outsideTeam(nameWords: string[]): Team | null {
+  const name = nameWords.join(" ").trim();
+  if (!/[a-z]/i.test(name)) return null;
+  return { number: 0, name, slug: slugify(name), logoUrl: null };
 }
 
 function buildResult(
