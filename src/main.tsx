@@ -22,7 +22,10 @@ const router = createRouter({
   context: { queryClient },
   defaultPreload: "intent",
   defaultPreloadStaleTime: 0,
-  scrollRestoration: true,
+  // Schedule pages scroll themselves to the current week; the router's
+  // scroll-to-top would otherwise run after and undo it.
+  scrollRestoration: ({ location }) =>
+    !/^\/divisions\/[^/]+\/schedule\/?$/.test(location.pathname),
 });
 
 declare module "@tanstack/react-router" {
