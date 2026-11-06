@@ -263,5 +263,6 @@ function buildResult(
     awayScore,
     overtime: tag === "OT" || tag === "SO",
     tie: tag === "T",
+    forfeit: tag === "F",
   };
 }

@@ -219,6 +219,7 @@ type ScheduleRow = {
     awayScore: number;
     overtime: boolean;
     tie: boolean;
+    forfeit: boolean;
   } | null;
 };
 
@@ -373,6 +374,7 @@ function toSchedulePerspective(
       awayScore: r.awayScore,
       overtime: r.overtime,
       tie: r.tie,
+      forfeit: r.forfeit,
     };
   }
   return {
@@ -380,6 +382,7 @@ function toSchedulePerspective(
     awayScore: r.homeScore,
     overtime: r.overtime,
     tie: r.tie,
+    forfeit: r.forfeit,
   };
 }
 
@@ -408,6 +411,11 @@ function ScheduleGameBadges({
       {display?.tie && (
         <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
           Tie
+        </Badge>
+      )}
+      {display?.forfeit && (
+        <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+          Forfeit
         </Badge>
       )}
     </div>
@@ -627,6 +635,7 @@ function UnmatchedResultRow({ r }: { r: Result }) {
       <div>
         {r.overtime && <Badge variant="outline">OT</Badge>}
         {r.tie && <Badge variant="outline">Tie</Badge>}
+        {r.forfeit && <Badge variant="outline">Forfeit</Badge>}
       </div>
     </li>
   );

@@ -89,6 +89,8 @@ export const ResultSchema = z.object({
   awayScore: z.number().int().nonnegative(),
   overtime: z.boolean(),
   tie: z.boolean(),
+  /** Tagged `(F)` on the site; scored 1-0 for the team that didn't forfeit. */
+  forfeit: z.boolean(),
 });
 export type Result = z.infer<typeof ResultSchema>;
 
